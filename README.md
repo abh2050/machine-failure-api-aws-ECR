@@ -188,6 +188,8 @@ AWS_PROFILE=<your-profile> ./measure.sh
 
 `deploy.sh` resolves the account ID at runtime and targets `us-east-2`. To use another region, update `REGION` in both scripts. `measure.sh` sends live requests and temporarily changes the function configuration to force cold starts. [Resource inventory and cleanup commands](RESOURCES.md) are documented separately.
 
+**Deployment status:** The live deployment was deleted on 2026-09-27 after the failure drills, so the endpoint in the build log no longer answers. `deploy.sh` rebuilds the full stack from this repository. See [Teardown](#teardown).
+
 **4. Open the visual documentation**
 
 Open [`docs/index.html`](docs/index.html) directly in a browser. Diagram and photograph assets are included locally; optional web fonts fall back to system fonts offline.
@@ -560,3 +562,7 @@ HTTP 200
 ```
 
 The drill image remains in ECR and is listed in `RESOURCES.md`.
+
+## Teardown
+
+All AWS resources were deleted on 2026-09-27 in this order: the HTTP API with its integration, route, and stage; the Lambda function with its resource policy; the log group; the IAM role after detaching `AWSLambdaBasicExecutionRole`; and the ECR repository with both images. A follow up inventory found nothing left. The custom CloudWatch metrics remain because AWS does not allow deleting them, and they cost nothing without new data.

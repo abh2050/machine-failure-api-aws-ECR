@@ -1,5 +1,7 @@
 # AWS resources
 
+**Status: every resource below was deleted on 2026-09-27.** A follow up inventory found no resource tagged `Project=machine-failure-api`, and no API, function, log group, role, or repository with the project name. The four custom CloudWatch metrics remain, because AWS does not allow deleting metrics. They cost nothing once no new data arrives and expire after 15 months. Run `./deploy.sh` to recreate the stack.
+
 Every resource below lives in us-east-2 (IAM is global) and carries the tags `Project=machine-failure-api` and `Owner=abhishek`. The account ID is left out on purpose. Get it with `aws sts get-caller-identity --query Account --output text`.
 
 All commands assume `export AWS_PROFILE=awsnew`.
