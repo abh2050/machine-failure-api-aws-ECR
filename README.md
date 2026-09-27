@@ -1,114 +1,168 @@
-# machine-failure-api
+<div align="center">
 
-This project serves a predictive maintenance model as a public HTTPS API on AWS. A client posts one machine sensor reading, and the service returns the probability that the machine fails, a yes or no flag, the decision threshold, and the model version.
+<p><strong>APPLIED MACHINE LEARNING · SERVERLESS INFERENCE · AWS</strong></p>
 
-A scikit-learn gradient boosting model is trained on the UCI AI4I 2020 dataset and exported to ONNX. It runs in an arm64 container image on AWS Lambda behind an API Gateway HTTP API, and the runtime image contains no scikit-learn or pandas. The project was built in seven gates, and each gate ended with command output that proved it worked. That output is recorded in the [build log](#build-log).
+# Machine Failure API
+
+### From machine signals to traceable failure decisions.
+
+A predictive maintenance classifier delivered as an observable, versioned HTTPS service.
+
+<p>
+  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white">
+  <img alt="ONNX Runtime" src="https://img.shields.io/badge/Inference-ONNX_Runtime-005CED?style=flat-square">
+  <img alt="AWS Lambda arm64" src="https://img.shields.io/badge/AWS_Lambda-arm64-FF9900?style=flat-square&amp;logo=awslambda&amp;logoColor=white">
+  <img alt="Infrastructure region us-east-2" src="https://img.shields.io/badge/Region-us--east--2-394D3A?style=flat-square">
+</p>
+
+**[Architecture](#architecture)** · **[Engineering decisions](#design-decisions)** · **[API contract](#api)** · **[Reproduce](#reproduce)** · **[Build evidence](#build-log)**
+
+</div>
+
+---
+
+The service scores one machine reading using a gradient boosting classifier trained on the **UCI AI4I 2020 predictive maintenance dataset**. Each response includes a **failure probability**, **boolean flag**, **decision threshold**, and **model version**.
+
+The engineering focus is the complete model-to-service boundary: shared feature construction, a numerical parity gate for ONNX export, immutable container artifacts, input validation, and measured serving behavior. Inference runs on AWS Lambda in an arm64 container behind an API Gateway HTTP API. The runtime image contains neither pandas nor scikit-learn.
+
+> **Explore the visual case study:** Open [`docs/index.html`](docs/index.html) locally for the portfolio presentation and three interactive Archify diagrams. GitHub displays HTML source; download or clone the repository to use the viewers in a browser.
 
 ## Results
 
-| Measure | Value |
-|---|---|
-| Test PR AUC | 0.93 |
-| Test recall and precision at the tuned threshold | 0.92 and 0.60 (the target was recall of at least 0.90) |
-| Largest difference between ONNX and scikit-learn probabilities | 1.2e-07 |
-| Warm Lambda duration | 2.5 ms p50, 10.8 ms p99 |
-| Cold start Init Duration | 0.7 s average, 1.2 s maximum |
-| Memory used | 130 MB of 512 MB |
-| Image size | 237 MB compressed, 711 MB unpacked |
-| Cost per million requests | 1.84 USD before the free tier |
+| Model quality | Failure detection | Warm execution | Variable serving cost |
+| :--- | :--- | :--- | :--- |
+| **0.9315** average precision | **92.16%** test recall | **2.50 ms** Lambda p50 | **$1.84** / million warm requests |
+| Held-out test partition | 60.26% precision at the tuned threshold | 10.84 ms p99 · 120 requests | Recorded estimate, before free tier |
 
-Measurements come from [Gate 6](#gate-6-measurement). The model scores run high because the dataset is synthetic, as the next section explains.
+<details>
+<summary><strong>Measurement scope and supporting numbers</strong></summary>
 
-## Dataset limitation
+| Measure | Recorded result | Interpretation |
+| :--- | :--- | :--- |
+| Maximum ONNX / scikit-learn probability difference | `1.16e-07` | Below the `1e-3` export tolerance |
+| Cold initialization | 699 ms mean · 1172 ms maximum | Five forced cold starts |
+| API Gateway latency | 71.6 ms p50 | Different measurement boundary from Lambda duration |
+| Client round trip | 334 ms warm p50 | Laptop over the internet |
+| Maximum memory used | 130 MB / 512 MB | Observed during the measurement run |
+| Container image | 236.7 MB compressed · 711 MB unpacked | Runtime dependencies and Lambda base image |
 
-The AI4I 2020 dataset is synthetic. Its generator derives most failure labels directly from the input features through fixed rules, such as heat dissipation failure when the temperature difference is below 8.6 K and rotational speed is below 1380 rpm. A model that sees the same features can learn those rules almost exactly, so the scores in this project run high and do not predict how the model would perform on real factory data. The dataset also contains random failures that the generator assigns with no relation to the inputs. Those failures carry no signal, and no model can predict them.
+Model metrics come from [`model/metadata.json`](model/metadata.json). Serving measurements and the historical cost estimate are recorded in [Gate 6](#gate-6-measurement), September 27, 2026, in `us-east-2`. Cost excludes fixed metric and storage charges. These observations are not an SLO or a claim of current pricing.
+
+</details>
 
 ## Architecture
 
+[![Architecture: API client sends HTTPS requests through API Gateway to Lambda; ECR supplies the image by digest, and CloudWatch extracts metrics from structured logs.](docs/assets/system-architecture.svg)](docs/diagrams/system-architecture.html)
+
+**Request path:** `POST /predict` → Pydantic validation → shared feature transform → ONNX Runtime → threshold decision → versioned JSON response.
+
+The ONNX session loads once per execution environment and is reused by warm invocations. API Gateway invokes the function through a route-scoped resource policy. The Lambda execution role uses `AWSLambdaBasicExecutionRole`; custom metrics are emitted as Embedded Metric Format logs and extracted by CloudWatch.
+
+| Explore the system | What the diagram explains |
+| :--- | :--- |
+| [System architecture](docs/diagrams/system-architecture.html) | API Gateway, Lambda, image provenance, and CloudWatch telemetry |
+| [Training pipeline](docs/diagrams/training-pipeline.html) | Feature construction, stratified partitions, threshold selection, and verified export |
+| [Inference path](docs/diagrams/inference-path.html) | Validation, scoring, the 422 branch, and initialization safeguards |
+
+The linked HTML viewers support light/dark themes, search, tracing, zoom, and export. Editable specifications and regeneration instructions live in [`docs/`](docs/README.md).
+
+<details>
+<summary><strong>Text-based architecture reference</strong></summary>
+
 ```mermaid
 flowchart TB
-    client["Client<br/>POST /predict with one JSON reading"]
-    apigw["API Gateway HTTP API<br/>$default stage, 10 requests per second, burst 20"]
-    lambda["AWS Lambda<br/>container image, arm64, 512 MB, 10 s timeout"]
-    ecr[("Amazon ECR<br/>image repository")]
-    logs["CloudWatch Logs<br/>14 day retention"]
-    metrics["CloudWatch Metrics<br/>namespace MachineFailureApi"]
+    client["Client · one JSON reading"]
+    apigw["API Gateway HTTP API<br/>10 requests/s · burst 20"]
+    lambda["AWS Lambda<br/>arm64 · 512 MB · 10 s timeout"]
+    ecr[("Amazon ECR<br/>immutable image")]
+    logs["CloudWatch Logs<br/>14-day retention"]
+    metrics["CloudWatch Metrics<br/>MachineFailureApi"]
 
-    client -->|HTTPS| apigw
-    apigw -->|"Lambda proxy integration, payload 2.0<br/>allowed by a resource based policy"| lambda
-    ecr -->|image pulled by digest| lambda
-    lambda -->|JSON logs| logs
-    logs -->|Embedded Metric Format| metrics
+    client -->|HTTPS POST /predict| apigw
+    apigw -->|"Proxy payload 2.0"| lambda
+    ecr -->|"Image digest"| lambda
+    lambda -->|"JSON + EMF logs"| logs
+    logs -->|"Metric extraction"| metrics
 
     subgraph handler["Inside the function"]
         direction LR
-        v["Pydantic validation<br/>422 for implausible readings"] --> f["features.py<br/>9 features"] --> o["onnxruntime<br/>model loaded once per container"]
+        v["Pydantic validation"] --> f["Shared transform · 9 features"] --> o["ONNX Runtime"]
     end
     lambda -.- handler
 ```
 
-The Lambda execution role holds only `AWSLambdaBasicExecutionRole`, which allows writing logs and nothing else. Metrics need no extra permission, because the function writes them as structured log lines in Embedded Metric Format and CloudWatch extracts them.
+</details>
 
 ## Design decisions
 
-1. **One feature module for training and serving.** `features.py` depends only on numpy, so the training script and the Lambda handler import the same code. Training and serving cannot drift apart.
-2. **ONNX instead of scikit-learn at runtime.** The export keeps scikit-learn and pandas out of the image, and a parity assertion in `train.py` fails the build when ONNX and scikit-learn disagree by 1e-3 or more.
-3. **A startup guard on feature order.** The handler compares the feature order in `model/metadata.json` with `features.py` when the container starts. A mismatch stops the function before it can serve a single wrong prediction, which [drill 3](#drill-3-feature-order-mismatch) confirmed.
-4. **Validation bounds set by physics, not by the dataset.** The service scores a rare reading and rejects only an impossible one, such as negative temperature or process temperature below ambient air.
-5. **The threshold is tuned for recall.** A missed failure costs more than a false alarm in maintenance, so `train.py` picks the highest threshold that still reaches recall of 0.90 on the validation split.
-6. **Deployment by image digest.** Image tags are immutable and derived from a hash of the build inputs. The function points at the digest, so it runs exactly the image that was pushed.
-7. **A deploy script that is safe to run twice.** `deploy.sh` checks each resource before it creates or changes it. A second run changes nothing, and the same script rolled the service back in drills 2 and 3.
-8. **Throttling on a public endpoint.** The API has no authentication, so the stage caps traffic at 10 requests per second to bound what a stranger could spend.
+| Boundary | Implementation | Engineering rationale |
+| :--- | :--- | :--- |
+| **Training ↔ serving** | One NumPy-only [`features.py`](features.py) module | Reuse the same transform and ordered float32 representation across both contexts. |
+| **Estimator ↔ runtime** | ONNX export with a probability parity assertion | Keep training libraries out of the runtime while detecting numerical divergence above the allowed tolerance. |
+| **Artifact ↔ handler** | Startup comparison of metadata and `FEATURE_ORDER` | Fail before serving if the model's feature ordering does not match the handler. |
+| **Score ↔ decision** | Highest validation threshold satisfying recall ≥ 0.90 | Make the missed-failure versus false-alarm tradeoff explicit; evaluate it on held-out test data. |
+| **Input ↔ inference** | Pydantic bounds, type checks, and cross-field validation | Reject invalid readings and unknown fields with a structured HTTP 422 response. |
+| **Build ↔ deployment** | Build-input hash tags, immutable ECR images, digest-based deployment | Identify the exact runtime artifact; skip redundant image builds and unnecessary configuration updates. |
+| **Runtime ↔ telemetry** | Powertools structured logs and EMF | Track predictions, flagged failures, rejected inputs, and inference latency without direct metric API calls. |
+| **Public API ↔ traffic** | Stage throttle: 10 requests/s, burst 20 | Limit request throughput on the unauthenticated endpoint; throttling is not authentication. |
 
-## What each gate taught
+## Dataset limitation
 
-| Gate | Work | Lesson |
-|---|---|---|
-| 1 | Features, training, ONNX export | A parity check turns the model export from a hope into a test. The difference came out at 1.2e-07. |
-| 2 | Handler and tests | Powertools validation and Embedded Metric Format give structured logs and metrics with very little code. |
-| 3 | Container image | The Lambda base image ships a runtime emulator, so the real image can be tested on a laptop before any deploy. |
-| 4 | ECR, IAM role, Lambda | A service control policy overrides even an administrator role. This account allowed only us-east-2, so the project moved there. A new IAM role also needs a few seconds before Lambda can assume it. |
-| 5 | HTTP API | A Lambda function needs a resource based policy before API Gateway can call it, separate from the role the function runs as. |
-| 6 | Measurement | API Gateway requests and log ingestion cost far more than the compute. Lambda duration adds only 0.02 USD per million requests. |
-| 7 | Failure drills | A missing permission leaves no trace in the function logs, so API access logging is the next improvement. The drills also exposed a deploy script step that caused needless cold starts. |
+[UCI describes AI4I 2020](https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset) as a synthetic dataset reflecting industrial predictive maintenance conditions. Many failure labels are generated from rules over the available inputs; this makes benchmark performance easier to achieve than generalization to a factory fleet. Random failures have no predictive relationship to those inputs.
+
+The held-out test partition contains **51 failures**, so one missed failure moves recall by approximately two percentage points. These results demonstrate the benchmark and serving pipeline. Field deployment would require site-specific data, temporal validation, calibration assessment, and distribution-shift monitoring.
 
 ## API
 
-`POST /predict` accepts one reading.
+### `POST /predict`
+
+**Request — one machine reading**
 
 ```json
-{"type": "M", "air_temp_k": 298.1, "process_temp_k": 308.6, "rotational_speed_rpm": 1551, "torque_nm": 42.8, "tool_wear_min": 0}
+{
+  "type": "M",
+  "air_temp_k": 298.1,
+  "process_temp_k": 308.6,
+  "rotational_speed_rpm": 1551,
+  "torque_nm": 42.8,
+  "tool_wear_min": 0
+}
 ```
 
-The service returns the failure probability, the flag, the decision threshold, and the model version.
+**Response — HTTP 200**
 
 ```json
-{"failure_probability": 0.0013, "failure": false, "threshold": 0.0536, "model_version": "20260927-c55438f1"}
+{
+  "failure_probability": 0.0013,
+  "failure": false,
+  "threshold": 0.0536,
+  "model_version": "20260927-c55438f1"
+}
 ```
 
-The service rejects a physically implausible reading with HTTP 422. The type must be L, M, or H. Air temperature must lie between 250 and 350 K, process temperature between 250 and 400 K, rotational speed above 0 and at most 5000 rpm, torque between 0 and 150 Nm, and tool wear between 0 and 400 minutes. Process temperature cannot fall below air temperature, and unknown fields are rejected.
+Example values are rounded for display. The flag is computed as `failure_probability >= threshold`; each response identifies the model version and decision policy.
 
-## Repository layout
+<details>
+<summary><strong>Validation contract · HTTP 422 on invalid input</strong></summary>
 
-| Path | Purpose |
-|---|---|
-| `features.py` | The only feature engineering code. Training and serving both import it. It depends on numpy alone. |
-| `train.py` | Downloads the data, trains the model, tunes the threshold, exports ONNX, and checks parity. |
-| `model/` | `model.onnx` and `metadata.json`, which the container image ships. |
-| `app.py` | The Lambda handler. |
-| `tests/test_app.py` | Handler tests that use real HTTP API events. |
-| `Dockerfile` | The runtime image, built on `public.ecr.aws/lambda/python:3.12` pinned by digest. |
-| `deploy.sh` | Creates or updates every AWS resource. It is safe to run repeatedly. |
-| `measure.sh` | Measures cold start, warm latency, metrics, and cost against the live API. |
-| `events/` | Sample HTTP API events for the local emulator and `aws lambda invoke`. |
-| `RESOURCES.md` | Every AWS resource the project created, with its delete command. |
-| `CLAUDE.md` | The working rules for the AI pair programmer that helped build the project. |
-| `requirements.txt` | Runtime dependencies, pinned: numpy, onnxruntime, pydantic, aws-lambda-powertools. |
-| `requirements-dev.txt` | Training and test dependencies, pinned. The image never installs them. |
+| Field | Accepted values |
+| :--- | :--- |
+| `type` | `L`, `M`, or `H` |
+| `air_temp_k` | 250–350 K |
+| `process_temp_k` | 250–400 K; must be ≥ air temperature |
+| `rotational_speed_rpm` | > 0 and ≤ 5000 rpm |
+| `torque_nm` | 0–150 Nm |
+| `tool_wear_min` | 0–400 min |
+
+Unknown fields are rejected. The handler returns structured validation errors and emits the `InvalidReadings` metric.
+
+</details>
 
 ## Reproduce
 
-You need Python 3.12, Docker with arm64 support, and AWS CLI v2.
+**Prerequisites:** Python 3.12, Docker with arm64 support, and AWS CLI v2.
+
+**1. Train, export, and test locally**
 
 ```bash
 git clone https://github.com/abh2050/machine-failure-api-aws-ECR.git
@@ -117,12 +171,59 @@ python3.12 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python train.py
 .venv/bin/pytest -q
+```
+
+**2. Authenticate and deploy**
+
+```bash
 aws login --profile <your-profile>
 AWS_PROFILE=<your-profile> ./deploy.sh
+```
+
+**3. Measure the deployed service**
+
+```bash
 AWS_PROFILE=<your-profile> ./measure.sh
 ```
 
-`deploy.sh` reads the account ID at runtime and deploys to us-east-2. Change the `REGION` variable in `deploy.sh` and `measure.sh` to deploy elsewhere. `RESOURCES.md` lists the delete command for every resource.
+`deploy.sh` resolves the account ID at runtime and targets `us-east-2`. To use another region, update `REGION` in both scripts. `measure.sh` sends live requests and temporarily changes the function configuration to force cold starts. [Resource inventory and cleanup commands](RESOURCES.md) are documented separately.
+
+**4. Open the visual documentation**
+
+Open [`docs/index.html`](docs/index.html) directly in a browser. Diagram and photograph assets are included locally; optional web fonts fall back to system fonts offline.
+
+## Repository layout
+
+| Path | Responsibility |
+| :--- | :--- |
+| [`docs/`](docs/README.md) | Visual case study, interactive diagrams, editable specifications, and validation evidence |
+| [`features.py`](features.py) | Shared feature construction; NumPy only |
+| [`train.py`](train.py) | Dataset loading, training, threshold tuning, evaluation, export, and parity check |
+| [`model/`](model/) | ONNX model and versioned metadata bundled into the image |
+| [`app.py`](app.py) | Input validation, inference, response contract, and telemetry |
+| [`tests/test_app.py`](tests/test_app.py) | Handler tests using HTTP API event payloads |
+| [`Dockerfile`](Dockerfile) | Python 3.12 Lambda runtime image with a digest-pinned base |
+| [`deploy.sh`](deploy.sh) | Resource creation and conditional deployment updates |
+| [`measure.sh`](measure.sh) | Cold/warm latency, CloudWatch metrics, and variable cost measurement |
+| [`events/`](events/) | Valid and invalid HTTP API event examples |
+| [`RESOURCES.md`](RESOURCES.md) | AWS resource inventory and deletion commands |
+| [`requirements.txt`](requirements.txt) | Pinned runtime dependencies |
+| [`requirements-dev.txt`](requirements-dev.txt) | Training and test dependencies |
+| [`CLAUDE.md`](CLAUDE.md) | AI pair-programming working instructions |
+
+## What each gate taught
+
+| Gate | Evidence | Engineering takeaway |
+| :--- | :--- | :--- |
+| [01 · Training](#gate-1-features-and-training) | Held-out metrics and ONNX parity | Treat model conversion as a numerical correctness boundary. |
+| [02 · Handler](#gate-2-handler-and-tests) | Event-based tests and validation | Test the real integration contract, including rejected inputs. |
+| [03 · Container](#gate-3-container-image) | Local runtime emulator checks | Exercise the packaged runtime before deployment. |
+| [04 · Infrastructure](#gate-4-ecr-iam-role-and-lambda-function) | ECR, IAM, and Lambda commands | Account-level policy and IAM propagation affect deployment. |
+| [05 · HTTP API](#gate-5-http-api) | Public route and proxy integration | Function invoke permission is separate from the execution role. |
+| [06 · Measurement](#gate-6-measurement) | Latency, memory, metrics, and cost | Gateway and log ingestion dominate the measured variable cost. |
+| [07 · Failure drills](#gate-7-failure-drills) | Invalid input, missing permission, feature mismatch | Failures at different boundaries leave different observability signals. |
+
+---
 
 ## Build log
 

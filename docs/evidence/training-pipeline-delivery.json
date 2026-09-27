@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "docs/specs/training-pipeline.json",
+  "output": "docs/diagrams/training-pipeline.html",
+  "specification": {
+    "sha256": "e4425f41b70756ff5c377899bf73c4a4b365b8b546989f0f401955530ef91280",
+    "bytes": 2997
+  },
+  "artifact": {
+    "sha256": "76cd230d208ac6d5f27780a90e65b87e209ebfaee3b89d7028fd07e5ee919400",
+    "bytes": 705976
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

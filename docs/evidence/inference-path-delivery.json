@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "docs/specs/inference-path.json",
+  "output": "docs/diagrams/inference-path.html",
+  "specification": {
+    "sha256": "16028752ea89baa86f4cded613a5008a955acc78553d9f314cde5771823c700e",
+    "bytes": 3404
+  },
+  "artifact": {
+    "sha256": "12edf78e5241ca101214df10c35899b24d0dd789ae00233ba4879ff9378ec7e0",
+    "bytes": 708739
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Machine failure API \u00b7 System architecture",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1180,
+      600
+    ]
+  },
+  "components": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "API client",
+      "sublabel": "One machine reading",
+      "pos": [
+        50,
+        240
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "cloud",
+      "label": "API Gateway",
+      "sublabel": "HTTP API \u00b7 public route",
+      "pos": [
+        475,
+        240
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "lambda",
+      "type": "backend",
+      "label": "AWS Lambda",
+      "sublabel": "arm64 \u00b7 512 MB \u00b7 10 s",
+      "pos": [
+        900,
+        240
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "ecr",
+      "type": "cloud",
+      "label": "Amazon ECR",
+      "sublabel": "Immutable image tags",
+      "pos": [
+        900,
+        40
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "logs",
+      "type": "cloud",
+      "label": "CloudWatch Logs",
+      "sublabel": "JSON + EMF \u00b7 14 days",
+      "pos": [
+        900,
+        440
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "metrics",
+      "type": "cloud",
+      "label": "CloudWatch Metrics",
+      "sublabel": "MachineFailureApi",
+      "pos": [
+        475,
+        440
+      ],
+      "size": [
+        210,
+        74
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "client-gateway",
+      "from": "client",
+      "to": "gateway",
+      "label": "HTTPS POST /predict"
+    },
+    {
+      "id": "gateway-lambda",
+      "from": "gateway",
+      "to": "lambda",
+      "label": "Proxy payload 2.0"
+    },
+    {
+      "id": "ecr-lambda",
+      "from": "ecr",
+      "to": "lambda",
+      "label": "Image digest",
+      "labelAt": [
+        1005,
+        177
+      ]
+    },
+    {
+      "id": "lambda-logs",
+      "from": "lambda",
+      "to": "logs",
+      "label": "Structured logs",
+      "labelAt": [
+        1005,
+        377
+      ]
+    },
+    {
+      "id": "logs-metrics",
+      "from": "logs",
+      "to": "metrics",
+      "label": "EMF extraction"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Serving boundary",
+      "items": [
+        "Public API: 10 requests/s, burst 20",
+        "API-specific Lambda invoke permission"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Runtime artifact",
+      "items": [
+        "Model + metadata packaged in image",
+        "ONNX session reused on warm invocations"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Observability",
+      "items": [
+        "Execution role: basic Lambda logging",
+        "Metrics extracted from logs, no SDK writes"
+      ]
+    }
+  ]
+}

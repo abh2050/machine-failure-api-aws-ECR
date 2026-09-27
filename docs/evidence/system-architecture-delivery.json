@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "docs/specs/system-architecture.json",
+  "output": "docs/diagrams/system-architecture.html",
+  "specification": {
+    "sha256": "3a89e501b8688bba954a22b7403f056edbe80d46fc11f036b6c9c72d10f1428b",
+    "bytes": 2974
+  },
+  "artifact": {
+    "sha256": "e6e0bb23d99b80a516020ed5bf131aa0c7c5987d15f6fe2b46a2c1cd11e572d1",
+    "bytes": 706193
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

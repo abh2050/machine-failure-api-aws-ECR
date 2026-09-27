@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Machine failure API \u00b7 Training and export",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1180,
+      600
+    ]
+  },
+  "components": [
+    {
+      "id": "dataset",
+      "type": "database",
+      "label": "AI4I 2020",
+      "sublabel": "Synthetic machine readings",
+      "pos": [
+        50,
+        60
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "features",
+      "type": "backend",
+      "label": "Shared features",
+      "sublabel": "6 inputs \u2192 9 float32 values",
+      "pos": [
+        475,
+        60
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "split",
+      "type": "backend",
+      "label": "Stratified split",
+      "sublabel": "70% train \u00b7 15% val \u00b7 15% test",
+      "pos": [
+        900,
+        60
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "model",
+      "type": "backend",
+      "label": "Gradient boosting",
+      "sublabel": "Fit on training partition",
+      "pos": [
+        900,
+        400
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "threshold",
+      "type": "backend",
+      "label": "Threshold selection",
+      "sublabel": "Validation recall \u2265 0.90",
+      "pos": [
+        475,
+        400
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "export",
+      "type": "database",
+      "label": "ONNX + metadata",
+      "sublabel": "Test metrics + parity gate",
+      "pos": [
+        50,
+        400
+      ],
+      "size": [
+        210,
+        74
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "dataset-features",
+      "from": "dataset",
+      "to": "features",
+      "label": "build_matrix"
+    },
+    {
+      "id": "features-split",
+      "from": "features",
+      "to": "split",
+      "label": "Seed 42"
+    },
+    {
+      "id": "split-model",
+      "from": "split",
+      "to": "model",
+      "label": "Training rows",
+      "labelAt": [
+        1005,
+        267
+      ]
+    },
+    {
+      "id": "model-threshold",
+      "from": "model",
+      "to": "threshold",
+      "label": "Validation scores"
+    },
+    {
+      "id": "threshold-export",
+      "from": "threshold",
+      "to": "export",
+      "label": "Export and verify"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Feature contract",
+      "items": [
+        "Power, temperature delta, overstrain",
+        "features.py shared with serving"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Export gate",
+      "items": [
+        "Max probability error must be < 1e-3",
+        "Observed error: 1.16e-7 on test split"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evaluation scope",
+      "items": [
+        "Test recall 0.9216 \u00b7 precision 0.6026",
+        "Synthetic benchmark, not field validation"
+      ]
+    }
+  ]
+}

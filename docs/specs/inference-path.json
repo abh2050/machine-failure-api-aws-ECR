@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Machine failure API \u00b7 Inference path",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1180,
+      600
+    ]
+  },
+  "components": [
+    {
+      "id": "request",
+      "type": "external",
+      "label": "POST /predict",
+      "sublabel": "HTTP API event v2.0",
+      "pos": [
+        50,
+        70
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "validation",
+      "type": "security",
+      "label": "Pydantic validation",
+      "sublabel": "Bounds + cross-field checks",
+      "pos": [
+        475,
+        70
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "features",
+      "type": "backend",
+      "label": "Feature transform",
+      "sublabel": "Ordered (1, 9) float32 tensor",
+      "pos": [
+        900,
+        70
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "session",
+      "type": "backend",
+      "label": "ONNX Runtime",
+      "sublabel": "CPUExecutionProvider",
+      "pos": [
+        900,
+        400
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "decision",
+      "type": "backend",
+      "label": "Decision threshold",
+      "sublabel": "p(failure) \u2265 0.053647",
+      "pos": [
+        475,
+        400
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "response",
+      "type": "frontend",
+      "label": "Prediction response",
+      "sublabel": "Probability, flag, version",
+      "pos": [
+        50,
+        400
+      ],
+      "size": [
+        210,
+        74
+      ]
+    },
+    {
+      "id": "reject",
+      "type": "external",
+      "label": "HTTP 422",
+      "sublabel": "InvalidReadings metric",
+      "pos": [
+        475,
+        235
+      ],
+      "size": [
+        210,
+        74
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "request-validation",
+      "from": "request",
+      "to": "validation",
+      "label": "Resolve route"
+    },
+    {
+      "id": "validation-features",
+      "from": "validation",
+      "to": "features",
+      "label": "Valid reading"
+    },
+    {
+      "id": "validation-reject",
+      "from": "validation",
+      "to": "reject",
+      "label": "Invalid input",
+      "labelAt": [
+        580,
+        189
+      ]
+    },
+    {
+      "id": "features-session",
+      "from": "features",
+      "to": "session",
+      "label": "SESSION.run",
+      "labelAt": [
+        1005,
+        272
+      ]
+    },
+    {
+      "id": "session-decision",
+      "from": "session",
+      "to": "decision",
+      "label": "Class-1 score"
+    },
+    {
+      "id": "decision-response",
+      "from": "decision",
+      "to": "response",
+      "label": "HTTP 200 JSON"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Initialization contract",
+      "items": [
+        "Feature order checked against metadata",
+        "Mismatch fails before serving"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Warm execution",
+      "items": [
+        "Session loaded once per environment",
+        "Per-request features and inference"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Telemetry",
+      "items": [
+        "Predictions + FailuresFlagged counters",
+        "InferenceLatency excludes HTTP overhead"
+      ]
+    }
+  ]
+}
