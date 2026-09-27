@@ -1,0 +1,5 @@
+# Runtime dependencies shipped in the Lambda image. Keep this list to these four packages.
+numpy==2.5.3
+onnxruntime==1.30.0
+pydantic==2.13.5
+aws-lambda-powertools==3.35.0

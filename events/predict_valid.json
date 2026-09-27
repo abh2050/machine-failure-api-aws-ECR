@@ -1,0 +1,23 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /predict",
+  "rawPath": "/predict",
+  "rawQueryString": "",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "requestContext": {
+    "http": {
+      "method": "POST",
+      "path": "/predict",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "pytest"
+    },
+    "requestId": "test-request",
+    "routeKey": "POST /predict",
+    "stage": "$default"
+  },
+  "body": "{\"type\": \"M\", \"air_temp_k\": 298.1, \"process_temp_k\": 308.6, \"rotational_speed_rpm\": 1551, \"torque_nm\": 42.8, \"tool_wear_min\": 0}",
+  "isBase64Encoded": false
+}

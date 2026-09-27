@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(aws iam create-user:*)",
+      "Bash(aws iam create-access-key:*)",
+      "Bash(aws organizations:*)",
+      "Bash(aws budgets delete-budget:*)",
+      "Bash(aws sso-admin:*)",
+      "Bash(aws configure set aws_access_key_id:*)"
+    ],
+    "ask": [
+      "Bash(aws * delete-*)",
+      "Bash(aws iam attach-role-policy:*)",
+      "Bash(aws iam put-role-policy:*)"
+    ]
+  }
+}

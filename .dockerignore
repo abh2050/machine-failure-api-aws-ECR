@@ -1,0 +1,6 @@
+*
+!requirements.txt
+!features.py
+!app.py
+!model/model.onnx
+!model/metadata.json

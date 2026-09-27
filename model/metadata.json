@@ -1,0 +1,23 @@
+{
+  "version": "20260927-c55438f1",
+  "feature_order": [
+    "type_code",
+    "air_temp_k",
+    "process_temp_k",
+    "rotational_speed_rpm",
+    "torque_nm",
+    "tool_wear_min",
+    "power_w",
+    "temp_delta_k",
+    "overstrain_nm_min"
+  ],
+  "threshold": 0.05364711871521085,
+  "recall_target": 0.9,
+  "test_metrics": {
+    "pr_auc": 0.9315,
+    "recall": 0.9216,
+    "precision": 0.6026
+  },
+  "parity_max_abs_diff": 1.1612328104648739e-07,
+  "sklearn_version": "1.9.1"
+}

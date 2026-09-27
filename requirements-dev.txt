@@ -1,0 +1,7 @@
+# Training and test dependencies. Never installed in the Lambda image.
+-r requirements.txt
+pandas==3.0.6
+scikit-learn==1.9.1
+skl2onnx==1.20.0
+onnx==1.23.0
+pytest==9.1.1
