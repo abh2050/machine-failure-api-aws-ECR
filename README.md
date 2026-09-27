@@ -20,6 +20,7 @@ A predictive maintenance classifier delivered as an observable, versioned HTTPS 
 </div>
 
 ---
+![img](https://github.com/abh2050/machine-failure-api-aws-ECR/blob/main/docs/assets/factory.jpg)
 
 The service scores one machine reading using a gradient boosting classifier trained on the **UCI AI4I 2020 predictive maintenance dataset**. Each response includes a **failure probability**, **boolean flag**, **decision threshold**, and **model version**.
 
